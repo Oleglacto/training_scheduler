@@ -48,3 +48,11 @@ docker-build-frontend:
 .PHONY: migration
 migration:
 	goose -dir ./internal/migrations create $(name) go
+
+.PHONY: migrate
+migrate:
+	go run ./cmd/migration/main.go 123qweQWE up
+
+.PHONY: generate-swagger
+generate-swagger:
+	swagger generate model -f ./api/v1/swagger.yml -t ./pkg -m api_models

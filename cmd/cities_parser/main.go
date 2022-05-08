@@ -1,20 +1,19 @@
 package main
 
 import (
+	"context"
 	"encoding/csv"
 	"fmt"
+	"github.com/caarlos0/env/v6"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v4"
+	"github.com/joho/godotenv"
+	"github.com/oleglacto/traning_scheduler/internal/configs"
+	"github.com/oleglacto/traning_scheduler/internal/pkg/models"
 	"log"
 	"os"
 	"strconv"
 )
-
-type CsvCity struct {
-	name            string
-	region          string
-	federalDistrict string
-	latitude        float64
-	longitude       float64
-}
 
 func main() {
 	path, err := os.Getwd()
@@ -22,9 +21,30 @@ func main() {
 		log.Println(err)
 	}
 	fmt.Println(path)
-	records := readCsvFile(path + "/utf8_cities.csv")
-	cities := rawToStruct(records)
-	fmt.Println(cities)
+	records := readCsvFile(path + "/cmd/cities_parser/utf8_cities.csv")
+	cities := rawToModel(records)
+
+	err = godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	cfg := configs.DataBaseConfig{}
+	if err := env.Parse(&cfg); err != nil {
+		fmt.Printf("%+v\n", err)
+	}
+
+	conn, err := pgx.Connect(context.Background(), cfg.GetConnectionUrl())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
+		os.Exit(1)
+	}
+	defer conn.Close(context.Background())
+
+	err = seed(conn, cities)
+
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func readCsvFile(filePath string) [][]string {
@@ -44,8 +64,48 @@ func readCsvFile(filePath string) [][]string {
 	return records
 }
 
-func rawToStruct(records [][]string) []CsvCity {
-	cities := make([]CsvCity, 0, len(records))
+func seed(conn *pgx.Conn, cities []models.City) error {
+	tx, err := conn.Begin(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer tx.Rollback(context.Background())
+
+	_, err = tx.Prepare(
+		context.Background(),
+		"insert_cities",
+		"INSERT INTO cities "+
+			"(uuid, name, region, federal_district, latitude, longitude)"+
+			" VALUES "+
+			"($1,$2,$3,$4,$5,$6)",
+	)
+
+	if err != nil {
+		return err
+	}
+
+	for _, v := range cities {
+		_, err = tx.Exec(
+			context.Background(),
+			"insert_cities",
+			v.ID,
+			v.Name,
+			v.Region,
+			v.FederalDistrict,
+			v.Location.Latitude,
+			v.Location.Longitude,
+		)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(context.Background())
+}
+
+func rawToModel(records [][]string) []models.City {
+	cities := make([]models.City, 0, len(records))
 
 	for _, row := range records {
 		latitude, err := strconv.ParseFloat(row[3], 64)
@@ -55,7 +115,15 @@ func rawToStruct(records [][]string) []CsvCity {
 			continue
 		}
 
-		city := CsvCity{row[0], row[1], row[2], latitude, longitude}
+		city := models.City{
+			ID:              uuid.NewString(),
+			Name:            row[0],
+			Region:          row[1],
+			FederalDistrict: row[2],
+			Location: models.Location{
+				Latitude: latitude, Longitude: longitude,
+			},
+		}
 
 		cities = append(cities, city)
 	}

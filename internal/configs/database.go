@@ -1,8 +1,11 @@
 package configs
 
-import "fmt"
+import (
+	"fmt"
+	"net/url"
+)
 
-type DataBaseConfig struct {
+type Database struct {
 	Host     string `env:"DB_HOST"`
 	Port     int    `env:"DB_PORT"`
 	Schema   string `env:"DB_SCHEMA"`
@@ -11,14 +14,14 @@ type DataBaseConfig struct {
 	Password string `env:"DB_PASSWORD"`
 }
 
-func (cfg DataBaseConfig) GetConnectionUrl() string {
-	return fmt.Sprintf("postgresql://%s:%s@%s/%s?search_path=%s",
-		cfg.User,
-		cfg.Password,
-		cfg.Host,
-		cfg.Database,
-		cfg.Schema,
-	)
+func (cfg Database) Dsn() string {
+	return (&url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(cfg.User, cfg.Password),
+		Host:     fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
+		Path:     cfg.Database,
+		RawQuery: fmt.Sprintf("sslmode=disable&?search_path=%s", cfg.Schema),
+	}).String()
 }
 
 // postgresql://zebra:password@localhost/training_scheduler?search_path=main

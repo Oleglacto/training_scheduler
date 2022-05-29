@@ -18,7 +18,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
-	cfg := configs.DataBaseConfig{}
+	cfg := configs.Database{}
 	if err := env.Parse(&cfg); err != nil {
 		fmt.Printf("%+v\n", err)
 	}

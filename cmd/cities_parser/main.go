@@ -28,12 +28,12 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
-	cfg := configs.DataBaseConfig{}
+	cfg := configs.Database{}
 	if err := env.Parse(&cfg); err != nil {
 		fmt.Printf("%+v\n", err)
 	}
 
-	conn, err := pgx.Connect(context.Background(), cfg.GetConnectionUrl())
+	conn, err := pgx.Connect(context.Background(), cfg.Dsn())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
 		os.Exit(1)

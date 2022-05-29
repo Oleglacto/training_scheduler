@@ -23,7 +23,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading .env file")
 	}
-	cfg := configs.DataBaseConfig{}
+	cfg := configs.Database{}
 	if err := env.Parse(&cfg); err != nil {
 		fmt.Printf("%+v\n", err)
 	}
@@ -37,7 +37,7 @@ func main() {
 		fmt.Println("Can't migrate")
 	}
 
-	db, err := goose.OpenDBWithDriver("pgx", cfg.GetConnectionUrl())
+	db, err := goose.OpenDBWithDriver("pgx", cfg.Dsn())
 	if err != nil {
 		log.Fatalf("goose: failed to open DB: %v\n", err)
 	}
